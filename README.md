@@ -94,13 +94,16 @@ PKHeX is the most popular open-source Pokemon save editor. It supports ALL Pokem
 ### When to Use PKHeX vs Python Script
 | Task | Use |
 |------|-----|
-| Add Master Balls / items | Python script |
-| Add Rare Candies | Python script |
-| Max money | Python script |
+| Add Master Balls / items | Python script ✓ |
+| Add Rare Candies | Python script ✓ |
+| Max money | Python script ✓ |
 | Make Pokemon shiny | Python script ✓ |
 | Max Pokemon stats (DVs/EVs) | Python script ✓ |
 | Set Pokemon level | Python script ✓ |
 | Heal all Pokemon | Python script ✓ |
+| **Change Pokemon species** | Python script ✓ |
+| **Change Pokemon moves** | Python script ✓ |
+| **Rename Pokemon** | Python script ✓ |
 | Check if Pokemon is "legal" | PKHeX (only use case left) |
 
 ### One-Time Setup on macOS
@@ -303,6 +306,119 @@ if '--myitem' in args:
 
 ### Full Item List
 See: https://bulbapedia.bulbagarden.net/wiki/List_of_items_by_index_number_(Generation_II)
+
+---
+
+## Advanced: Change Pokemon Species, Moves, Nickname
+
+All done via Python - no browser, no PKHeX, no Wine.
+
+### Change Species (e.g., Electrode → Squirtle)
+
+```python
+# Species must be updated in TWO places:
+# 1. Party species list (0x2866 + slot-1)
+# 2. Pokemon data (0x286D + (slot-1)*48)
+
+SQUIRTLE = 7  # See species table below
+slot = 6      # Which party slot (1-6)
+
+# Update species list
+data[0x2866 + slot - 1] = SQUIRTLE
+
+# Update Pokemon data
+offset = 0x286D + (slot - 1) * 48
+data[offset] = SQUIRTLE
+```
+
+Pokemon will evolve normally based on its new species ID.
+
+### Change Moves
+
+```python
+slot = 6
+offset = 0x286D + (slot - 1) * 48
+
+# Move offsets within Pokemon: 2, 3, 4, 5
+data[offset + 2] = 55   # Move 1: Water Gun
+data[offset + 3] = 145  # Move 2: Bubble
+data[offset + 4] = 110  # Move 3: Withdraw
+data[offset + 5] = 44   # Move 4: Bite
+
+# PP offsets: 23, 24, 25, 26
+data[offset + 23] = 25  # Water Gun PP
+data[offset + 24] = 30  # Bubble PP
+data[offset + 25] = 40  # Withdraw PP
+data[offset + 26] = 25  # Bite PP
+```
+
+### Change Nickname
+
+Nicknames are 11 bytes max (10 chars + terminator). Located at 0x29CF + (slot-1)*11.
+
+```python
+# Text encoding
+encode = {
+    'A': 0x80, 'B': 0x81, 'C': 0x82, 'D': 0x83, 'E': 0x84, 'F': 0x85,
+    'G': 0x86, 'H': 0x87, 'I': 0x88, 'J': 0x89, 'K': 0x8A, 'L': 0x8B,
+    'M': 0x8C, 'N': 0x8D, 'O': 0x8E, 'P': 0x8F, 'Q': 0x90, 'R': 0x91,
+    'S': 0x92, 'T': 0x93, 'U': 0x94, 'V': 0x95, 'W': 0x96, 'X': 0x97,
+    'Y': 0x98, 'Z': 0x99, ' ': 0x7F,
+}
+TERMINATOR = 0x50
+
+slot = 6
+nickname_offset = 0x29CF + (slot - 1) * 11
+new_name = 'BIGBOIBLAS'  # Max 10 chars
+
+for i, char in enumerate(new_name):
+    data[nickname_offset + i] = encode[char.upper()]
+data[nickname_offset + len(new_name)] = TERMINATOR
+```
+
+### Species IDs (Gen 2)
+
+| ID | Pokemon | ID | Pokemon | ID | Pokemon |
+|----|---------|----|---------|----|---------|
+| 1 | Bulbasaur | 4 | Charmander | 7 | Squirtle |
+| 25 | Pikachu | 133 | Eevee | 143 | Snorlax |
+| 144 | Articuno | 145 | Zapdos | 146 | Moltres |
+| 150 | Mewtwo | 151 | Mew | 152 | Chikorita |
+| 155 | Cyndaquil | 158 | Totodile | 243 | Raikou |
+| 244 | Entei | 245 | Suicune | 249 | Lugia |
+| 250 | Ho-Oh | 251 | Celebi | | |
+
+Full list: https://bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_by_index_number_(Generation_II)
+
+### Move IDs (Common)
+
+| ID | Move | ID | Move | ID | Move |
+|----|------|----|----- |----|------|
+| 15 | Cut | 19 | Fly | 57 | Surf |
+| 70 | Strength | 148 | Flash | 250 | Whirlpool |
+| 55 | Water Gun | 53 | Flamethrower | 85 | Thunderbolt |
+| 58 | Ice Beam | 94 | Psychic | 89 | Earthquake |
+| 63 | Hyper Beam | 56 | Hydro Pump | 126 | Fire Blast |
+| 87 | Thunder | 59 | Blizzard | 38 | Double-Edge |
+
+Full list: https://bulbapedia.bulbagarden.net/wiki/List_of_moves_by_index_number_(Generation_II)
+
+---
+
+## Dealing with Save States
+
+Emulators like RetroArch/Gambatte use save states that override SRAM saves. If your edits don't appear in-game:
+
+### Delete Save States
+```bash
+# Find save states
+find /Volumes/MIYOO -iname "*crystal*.state*" 2>/dev/null
+
+# Delete them
+rm "/Volumes/MIYOO/Saves/CurrentProfile/states/Gambatte/Pokemon - Crystal Version (USA, Europe) (Rev 1).state.auto"
+```
+
+The game will then load from the SRAM (.srm) save instead.
 
 ---
 
