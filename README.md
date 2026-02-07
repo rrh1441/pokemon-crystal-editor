@@ -8,10 +8,10 @@ Complete guide for editing Pokemon saves on a Miyoo (or any retro handheld) from
 
 There are two approaches:
 
-1. **Python Script (Recommended)** - Direct save file manipulation, no dependencies, what we actually used
-2. **PKHeX (GUI, full-featured)** - Open source tool, requires Wine + .NET on Mac, overkill for simple edits
+1. **Python Script (Recommended)** - Full-featured editor, no dependencies, what we actually use
+2. **PKHeX (GUI)** - Open source tool, requires Wine + .NET on Mac, only needed for legality checking
 
-**TL;DR:** For adding Master Balls or simple item edits, just use the Python script. PKHeX is only needed for complex edits like modifying Pokemon stats, moves, or legality checking.
+**TL;DR:** The Python script now does almost everything - items, money, shiny Pokemon, max stats, level changes. PKHeX is only needed if you need to check legality for trading/competitive play.
 
 ---
 
@@ -40,18 +40,26 @@ python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --info
 python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --pokemon
 
 # Add specific items
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --masterballs
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --rarecandy
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --allballs
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --money
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --healing
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --stats
+python3 pokemon_crystal_editor.py --masterballs
+python3 pokemon_crystal_editor.py --rarecandy
+python3 pokemon_crystal_editor.py --allballs
+python3 pokemon_crystal_editor.py --money
+python3 pokemon_crystal_editor.py --healing
+python3 pokemon_crystal_editor.py --stats
+python3 pokemon_crystal_editor.py --all-items    # All item cheats at once
 
-# Combine multiple edits
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --masterballs --money --rarecandy
+# Pokemon editing
+python3 pokemon_crystal_editor.py --pokemon           # Show team
+python3 pokemon_crystal_editor.py --pokemon-detailed  # Show with full stats
+python3 pokemon_crystal_editor.py --shiny 1           # Make Pokemon #1 shiny
+python3 pokemon_crystal_editor.py --shiny all         # Make ALL Pokemon shiny
+python3 pokemon_crystal_editor.py --maxstats 1        # Max DVs/EVs for Pokemon #1
+python3 pokemon_crystal_editor.py --maxstats all      # Max stats for all
+python3 pokemon_crystal_editor.py --level 1 100       # Set Pokemon #1 to level 100
+python3 pokemon_crystal_editor.py --heal              # Fully heal all Pokemon
 
-# Everything at once
-python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --all
+# Combine anything
+python3 pokemon_crystal_editor.py --shiny all --maxstats all --money
 
 # Specify save file explicitly
 python3 ~/temp_shadcn/tiny/pokemon_crystal_editor.py --masterballs "/Volumes/OTHER/path/to/save.srm"
@@ -88,10 +96,12 @@ PKHeX is the most popular open-source Pokemon save editor. It supports ALL Pokem
 |------|-----|
 | Add Master Balls / items | Python script |
 | Add Rare Candies | Python script |
-| Edit Pokemon stats/moves/EVs | PKHeX |
-| Make Pokemon shiny | PKHeX |
-| Check if Pokemon is "legal" | PKHeX |
-| Batch edit multiple Pokemon | PKHeX |
+| Max money | Python script |
+| Make Pokemon shiny | Python script ✓ |
+| Max Pokemon stats (DVs/EVs) | Python script ✓ |
+| Set Pokemon level | Python script ✓ |
+| Heal all Pokemon | Python script ✓ |
+| Check if Pokemon is "legal" | PKHeX (only use case left) |
 
 ### One-Time Setup on macOS
 
@@ -139,16 +149,13 @@ A Windows-style GUI will open. You can:
 
 ## What We Actually Did (Session Log)
 
-1. **Tried PKHeX via Wine** - It needed .NET 9
-2. **Installed Wine:** `brew install --cask wine-stable`
-3. **Downloaded .NET 9 Windows runtime** from Microsoft
-4. **Installed .NET in Wine:** `wine ~/Downloads/windowsdesktop-runtime-9.0.12-win-x64.exe /quiet`
-5. **PKHeX launched** but we realized a script would be simpler
-6. **Found save file:** `/Volumes/JOE/Saves/CurrentProfile/saves/Gambatte/Pokemon - Crystal Version (USA, Europe) (Rev 1).srm`
-7. **Wrote Python script** to directly edit the save file
-8. **Added 99 Master Balls** in seconds
+1. **Tried PKHeX via Wine** - It needed .NET 9, lots of setup
+2. **Realized:** We can just edit the save file directly with Python
+3. **Found save file:** `/Volumes/JOE/Saves/CurrentProfile/saves/Gambatte/Pokemon - Crystal Version (USA, Europe) (Rev 1).srm`
+4. **Wrote Python scripts** to edit items, money, Pokemon stats, shininess, etc.
+5. **Result:** Full-featured save editor with zero dependencies
 
-**Lesson learned:** For simple edits, skip the Wine/PKHeX setup and just use the Python script.
+**Lesson learned:** Don't overcomplicate it. Python + knowledge of the save format = full control.
 
 ---
 
