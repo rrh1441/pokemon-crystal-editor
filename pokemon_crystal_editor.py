@@ -48,9 +48,7 @@ POCKETS = {
 # Pokemon party
 PARTY_COUNT_OFFSET = 0x2865
 PARTY_SPECIES_OFFSET = 0x2866  # 6 bytes + terminator
-PARTY_DATA_OFFSET = 0x288A     # Pokemon data starts here
-PARTY_OT_NAMES_OFFSET = 0x2865 + 1 + 6 + 1 + (6 * 48)  # After species list and pokemon data
-PARTY_NICKNAMES_OFFSET = PARTY_OT_NAMES_OFFSET + (6 * 11)
+PARTY_DATA_OFFSET = 0x286D     # Pokemon data starts here (after species list + terminator)
 
 # Party Pokemon structure (48 bytes each)
 # Offset within each Pokemon:
