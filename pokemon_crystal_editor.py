@@ -28,10 +28,23 @@ import struct
 # POKEMON CRYSTAL SAVE FILE STRUCTURE (US/EU)
 # =============================================================================
 
-# Checksum
+# Pokemon Crystal has TWO save banks - must edit BOTH!
+# Bank 1 (0x1200+ range): secondary/backup bank
+# Bank 2 (0x2000+ range): primary bank - what the game actually loads first
+# If Bank 2's checksum fails, game falls back to Bank 1
+BANK1_OFFSET = 0x0E00  # Offset difference between banks
+
+# Checksum - Bank 2 (primary - what the game loads first)
 CHECKSUM_OFFSET = 0x2D69
 CHECKSUM_DATA_START = 0x2009
 CHECKSUM_DATA_END = 0x2D68
+
+# Checksum - Bank 1 (secondary/backup)
+# Note: Despite the lower address range, this is the BACKUP bank
+# The game loads Bank 2 (0x2000+) first; Bank 1 is fallback
+CHECKSUM_OFFSET_BANK1 = 0x1F0D
+CHECKSUM_DATA_START_BANK1 = 0x1209
+CHECKSUM_DATA_END_BANK1 = 0x1D82
 
 # Player info
 PLAYER_NAME_OFFSET = 0x200B
@@ -39,10 +52,16 @@ PLAYER_NAME_LENGTH = 11
 PLAYER_ID_OFFSET = 0x2009
 MONEY_OFFSET = 0x23DC  # 3 bytes, BCD encoded
 
-# Inventory pockets
+# Inventory pockets - Bank 2 (primary - what the game loads first)
 POCKETS = {
     'items': {'count': 0x241A, 'data': 0x241B, 'max_slots': 20},
     'balls': {'count': 0x2465, 'data': 0x2466, 'max_slots': 12},
+}
+
+# Inventory pockets - Bank 1 (secondary/backup)
+POCKETS_BANK1 = {
+    'items': {'count': 0x161A, 'data': 0x161B, 'max_slots': 20},
+    'balls': {'count': 0x1665, 'data': 0x1666, 'max_slots': 12},
 }
 
 # Pokemon party
@@ -245,20 +264,27 @@ def backup_save(path):
         print(f"Backup created: {backup}")
 
 
-def calculate_checksum(data):
-    """Calculate Pokemon Crystal checksum."""
+def calculate_checksum(data, start, end):
+    """Calculate Pokemon Crystal checksum for a given range."""
     checksum = 0
-    for i in range(CHECKSUM_DATA_START, CHECKSUM_DATA_END + 1):
+    for i in range(start, end + 1):
         checksum = (checksum + data[i]) & 0xFFFF
     return checksum
 
 
 def update_checksum(data):
-    """Recalculate and update checksum in save data."""
-    checksum = calculate_checksum(data)
-    data[CHECKSUM_OFFSET] = checksum & 0xFF
-    data[CHECKSUM_OFFSET + 1] = (checksum >> 8) & 0xFF
-    return checksum
+    """Recalculate and update checksums for BOTH save banks."""
+    # Bank 1 (secondary/backup)
+    checksum1 = calculate_checksum(data, CHECKSUM_DATA_START_BANK1, CHECKSUM_DATA_END_BANK1)
+    data[CHECKSUM_OFFSET_BANK1] = checksum1 & 0xFF
+    data[CHECKSUM_OFFSET_BANK1 + 1] = (checksum1 >> 8) & 0xFF
+
+    # Bank 2 (primary - what game loads first)
+    checksum2 = calculate_checksum(data, CHECKSUM_DATA_START, CHECKSUM_DATA_END)
+    data[CHECKSUM_OFFSET] = checksum2 & 0xFF
+    data[CHECKSUM_OFFSET + 1] = (checksum2 >> 8) & 0xFF
+
+    return checksum1, checksum2
 
 
 def read_save(path):
@@ -603,9 +629,8 @@ def show_info(data):
             print(f"  {name}: x{qty}")
 
 
-def add_item_to_pocket(data, pocket_name, item_id, quantity=99):
-    """Add or update an item in a pocket."""
-    pocket = POCKETS[pocket_name]
+def add_item_to_pocket_single(data, pocket, item_id, quantity=99):
+    """Add or update an item in a single pocket (one bank)."""
     count = data[pocket['count']]
 
     # Check if item exists
@@ -625,6 +650,19 @@ def add_item_to_pocket(data, pocket_name, item_id, quantity=99):
         return f"Added x{min(quantity, 99)}"
     else:
         return "Pocket full!"
+
+
+def add_item_to_pocket(data, pocket_name, item_id, quantity=99):
+    """Add or update an item in BOTH save banks."""
+    # Edit Bank 1 (secondary/backup)
+    pocket1 = POCKETS_BANK1[pocket_name]
+    result1 = add_item_to_pocket_single(data, pocket1, item_id, quantity)
+
+    # Edit Bank 2 (primary - what the game loads first)
+    pocket2 = POCKETS[pocket_name]
+    result2 = add_item_to_pocket_single(data, pocket2, item_id, quantity)
+
+    return f"Bank1: {result1}, Bank2: {result2}"
 
 
 def add_master_balls(data, qty=99):
