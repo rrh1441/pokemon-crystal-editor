@@ -598,6 +598,88 @@ def give_pokemon_item(data, slot, item_id):
     return True
 
 
+def set_pokemon_species(data, slot, species_id, level=None):
+    """Change a Pokemon's species (transform it into another Pokemon)."""
+    pkmn = get_party_pokemon(data, slot)
+    if not pkmn:
+        print(f"No Pokemon in slot {slot}")
+        return False
+
+    old_name = pkmn['species_name']
+    new_name = POKEMON.get(species_id, f"#{species_id}")
+    offset = pkmn['offset']
+
+    # Update species in party list (0x2866 + slot-1)
+    data[PARTY_SPECIES_OFFSET + slot - 1] = species_id
+
+    # Update species in Pokemon data
+    data[offset + PKMN_SPECIES] = species_id
+
+    # Update level if specified
+    if level:
+        data[offset + PKMN_LEVEL] = min(100, max(1, level))
+
+    print(f"Transformed {old_name} into {new_name}!")
+    return True
+
+
+def add_suicune(data, slot):
+    """Replace a Pokemon with Suicune (for Ho-Oh quest)."""
+    SUICUNE_ID = 245
+
+    pkmn = get_party_pokemon(data, slot)
+    if not pkmn:
+        print(f"No Pokemon in slot {slot}")
+        return False
+
+    old_name = pkmn['species_name']
+    offset = pkmn['offset']
+
+    # Set species to Suicune
+    data[PARTY_SPECIES_OFFSET + slot - 1] = SUICUNE_ID
+    data[offset + PKMN_SPECIES] = SUICUNE_ID
+
+    # Set level 40 (encounter level)
+    data[offset + PKMN_LEVEL] = 40
+
+    # Give good moves: Surf, Ice Beam, Rain Dance, Aurora Beam
+    data[offset + PKMN_MOVE1] = 57   # Surf
+    data[offset + PKMN_MOVE2] = 58   # Ice Beam
+    data[offset + PKMN_MOVE3] = 240  # Rain Dance
+    data[offset + PKMN_MOVE4] = 62   # Aurora Beam
+
+    # Set PP for moves
+    data[offset + PKMN_PP1] = 15  # Surf
+    data[offset + PKMN_PP2] = 10  # Ice Beam
+    data[offset + PKMN_PP3] = 5   # Rain Dance
+    data[offset + PKMN_PP4] = 20  # Aurora Beam
+
+    # Give it shiny DVs (it's a legendary, why not)
+    set_dvs(data, offset + PKMN_DVS, 15, 10, 10, 10)
+
+    # Max EVs for good stats
+    write_word(data, offset + PKMN_HP_EV, 65535)
+    write_word(data, offset + PKMN_ATK_EV, 65535)
+    write_word(data, offset + PKMN_DEF_EV, 65535)
+    write_word(data, offset + PKMN_SPD_EV, 65535)
+    write_word(data, offset + PKMN_SPC_EV, 65535)
+
+    # Set reasonable HP (Suicune base HP 100, at lvl 40 ~140-150)
+    write_word(data, offset + PKMN_HP_MAX, 160)
+    write_word(data, offset + PKMN_HP_CURRENT, 160)
+
+    # Clear status, max friendship
+    data[offset + PKMN_STATUS] = 0
+    data[offset + PKMN_FRIENDSHIP] = 255
+
+    # No held item
+    data[offset + PKMN_ITEM] = 0
+
+    print(f"★ Replaced {old_name} with a SHINY Suicune (Lv.40)!")
+    print("  Moves: Surf, Ice Beam, Rain Dance, Aurora Beam")
+    return True
+
+
 # =============================================================================
 # ITEM/MONEY FUNCTIONS
 # =============================================================================
@@ -748,6 +830,7 @@ POKEMON EDITING:
   --maxstats N        Max DVs/EVs for Pokemon #N (1-6, or 'all')
   --level N LVL       Set Pokemon #N to level LVL
   --heal              Fully heal all Pokemon
+  --suicune N         Replace Pokemon #N with Suicune (for Ho-Oh quest)
 
 EXAMPLES:
   python3 pokemon_crystal_editor.py --pokemon-detailed
@@ -877,6 +960,18 @@ def main():
     if '--heal' in args:
         heal_all_pokemon(data)
         modified = True
+
+    if '--suicune' in args:
+        idx = args.index('--suicune')
+        if idx + 1 < len(args):
+            try:
+                slot = int(args[idx + 1])
+                add_suicune(data, slot)
+                modified = True
+            except ValueError:
+                print("Usage: --suicune SLOT (1-6)")
+        else:
+            print("Usage: --suicune SLOT (1-6)")
 
     # Save if modified
     if modified:
