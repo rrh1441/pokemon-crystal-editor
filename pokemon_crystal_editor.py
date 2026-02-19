@@ -239,6 +239,16 @@ HELD_ITEMS = {
     0xB4: 'Scope Lens', 0xC3: 'Quick Claw', 0xC4: 'Bright Powder',
 }
 
+# Base stats for Pokemon (HP, Atk, Def, Spd, SpAtk, SpDef)
+BASE_STATS = {
+    127: (65, 125, 100, 85, 55, 70),    # Pinsir
+    160: (85, 105, 100, 78, 79, 83),    # Feraligatr
+    243: (90, 85, 75, 115, 115, 100),   # Raikou
+    244: (115, 115, 85, 100, 90, 75),   # Entei
+    245: (100, 75, 115, 85, 90, 115),   # Suicune
+    250: (106, 130, 90, 90, 110, 154),  # Ho-Oh
+}
+
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -403,6 +413,60 @@ def make_shiny_dvs():
 def make_perfect_dvs():
     """Return perfect DVs (15 in all stats). Note: NOT shiny."""
     return {'atk': 15, 'def': 15, 'spd': 15, 'spc': 15}
+
+
+import math
+
+def calc_stat(base, dv, ev, level, is_hp=False):
+    """Calculate a Gen 2 stat value."""
+    # Gen 2 formula: floor(((Base + DV) * 2 + floor(sqrt(EV) / 4)) * Level / 100) + 5
+    # HP adds Level + 5 instead of just 5
+    ev_bonus = int(math.sqrt(ev)) // 4
+    stat = int(((base + dv) * 2 + ev_bonus) * level / 100)
+    if is_hp:
+        stat += level + 10
+    else:
+        stat += 5
+    return stat
+
+
+def recalc_pokemon_stats(data, slot):
+    """Recalculate all battle stats for a Pokemon based on level/DVs/EVs."""
+    pkmn = get_party_pokemon(data, slot)
+    if not pkmn:
+        return False
+
+    species = pkmn['species']
+    if species not in BASE_STATS:
+        print(f"No base stats for {pkmn['species_name']} (#{species})")
+        return False
+
+    base_hp, base_atk, base_def, base_spd, base_spatk, base_spdef = BASE_STATS[species]
+    level = pkmn['level']
+    dvs = pkmn['dvs']
+
+    offset = pkmn['offset']
+
+    # Calculate stats
+    hp = calc_stat(base_hp, dvs['hp'], pkmn['hp_ev'], level, is_hp=True)
+    atk = calc_stat(base_atk, dvs['atk'], pkmn['atk_ev'], level)
+    def_ = calc_stat(base_def, dvs['def'], pkmn['def_ev'], level)
+    spd = calc_stat(base_spd, dvs['spd'], pkmn['spd_ev'], level)
+    # Gen 2: SpAtk and SpDef both use Special DV/EV
+    spatk = calc_stat(base_spatk, dvs['spc'], pkmn['spc_ev'], level)
+    spdef = calc_stat(base_spdef, dvs['spc'], pkmn['spc_ev'], level)
+
+    # Write stats
+    write_word(data, offset + PKMN_HP_MAX, hp)
+    write_word(data, offset + PKMN_HP_CURRENT, hp)
+    write_word(data, offset + PKMN_ATK, atk)
+    write_word(data, offset + PKMN_DEF, def_)
+    write_word(data, offset + PKMN_SPD, spd)
+    write_word(data, offset + PKMN_SPC_ATK, spatk)
+    write_word(data, offset + PKMN_SPC_DEF, spdef)
+
+    print(f"Recalculated {pkmn['species_name']}: HP={hp} Atk={atk} Def={def_} Spd={spd} SpA={spatk} SpD={spdef}")
+    return True
 
 
 # =============================================================================
@@ -831,6 +895,7 @@ POKEMON EDITING:
   --level N LVL       Set Pokemon #N to level LVL
   --heal              Fully heal all Pokemon
   --suicune N         Replace Pokemon #N with Suicune (for Ho-Oh quest)
+  --recalc N          Recalculate battle stats for Pokemon #N (1-6, or 'all')
 
 EXAMPLES:
   python3 pokemon_crystal_editor.py --pokemon-detailed
@@ -972,6 +1037,23 @@ def main():
                 print("Usage: --suicune SLOT (1-6)")
         else:
             print("Usage: --suicune SLOT (1-6)")
+
+    if '--recalc' in args:
+        idx = args.index('--recalc')
+        if idx + 1 < len(args):
+            target = args[idx + 1]
+            if target == 'all':
+                count = data[PARTY_COUNT_OFFSET]
+                for i in range(1, count + 1):
+                    recalc_pokemon_stats(data, i)
+                modified = True
+            else:
+                try:
+                    slot = int(target)
+                    recalc_pokemon_stats(data, slot)
+                    modified = True
+                except ValueError:
+                    print(f"Invalid slot: {target}")
 
     # Save if modified
     if modified:

@@ -25,3 +25,6 @@ venv/
 *.srm
 *.sav
 *.backup*
+
+# SD card backups (large, local only)
+miyoo_backup_*/
